@@ -115,8 +115,8 @@
 
   - name: unzip wallet
     unarchive:
-        src: /home/{{hostvars['localhost']['username']}}/Johnston_ADB_Wallet.zip
-        dest: /home/{{hostvars['localhost']['username']}}/Johnston_ADB_Wallet
+        src: /home/{{hostvars['localhost']['username']}}/{{hostvars['localhost']['last_name']}}_ADB_Wallet.zip
+        dest: /home/{{hostvars['localhost']['username']}}/{{hostvars['localhost']['last_name']}}_ADB_Wallet
         remote_src: yes
 
   - name: cp
