@@ -1,0 +1,135 @@
+---
+- name: Developed 3/9/2020 By Christopher Johnston
+  hosts: all
+
+- name: Set Variables
+  hosts: localhost
+  tasks:
+  - name: Cat JSON File
+    shell: cat ../config.json
+    register: result
+
+  - name: Set the JSON output as a Fact
+    set_fact:
+       jsondata: "{{ result.stdout | from_json }}"
+
+  - name: Set Last Name
+    set_fact:
+       last_name: "{{ jsondata | json_query(jmesquery) }}"
+    vars:
+       jmesquery: 'last_name'
+
+  - name: Set Username
+    set_fact:
+       username: "{{ jsondata | json_query(jmesquery) }}"
+    vars:
+       jmesquery: 'username'
+
+- name: Configure Ubuntu with Oracle Instant Client
+  hosts: all
+  become: true
+
+  tasks:
+  - name: update repo
+    command: sudo apt-get update
+
+  - name: install build-essential
+    apt:
+        name: build-essential
+        state: present
+
+  - name: update apt
+    command: sudo apt-get update
+
+  - name: install python-pip
+    apt:
+        name: python-pip
+        state: present
+
+  - name: install unzip
+    apt:
+        name: unzip                  
+        state: present
+
+  - name: install python-dev
+    apt:
+        name: python-dev                  
+        state: present
+
+  - name: install libaio
+    apt:
+        name: libaio-dev
+        state: present
+
+  - name: Install cx_Oracle
+    command: pip install cx_Oracle
+
+  - name: make directory
+    command: mkdir -p /opt/oracle
+
+  - name: make python_scripts directory
+    command: mkdir python_scripts
+
+  - name: Allow Read/Write Access
+    command: sudo chmod 777 -R python_scripts
+
+  - name: make directory
+    command: mkdir {{hostvars['localhost']['last_name']}}_ADB_Wallet
+
+  - name: make directory
+    command: mkdir instantclient_dir
+
+  - name: unzip instantclient
+    unarchive:
+        src: /home/{{hostvars['localhost']['username']}}/instantclient.zip
+        dest: /home/{{hostvars['localhost']['username']}}/instantclient_dir
+        remote_src: yes
+
+  - name: find directory
+    find:
+      paths: /home/{{hostvars['localhost']['username']}}/instantclient_dir/
+      patterns: "instantclient_*"
+      file_type: directory
+    register: instantclient_file
+
+  - name: copy directory
+    command: cp -R {{instantclient_file.files[0].path}} /home/{{hostvars['localhost']['username']}}/instantclient
+
+  - name: move directory
+    command: sudo mv instantclient /opt/oracle
+
+  - name: ld
+    command: sh -c "echo /opt/oracle/instantclient > /etc/ld.so.conf.d/oracle-instantclient.conf"
+
+  - name: export
+    command: echo export LD_LIBRARY_PATH=/opt/oracle/instantclient:$LD_LIBRARY_PATH >> /home/{{hostvars['localhost']['username']}}/.bashrc
+
+  - name: mkdir
+    command: mkdir -p /opt/oracle/instantclient/network/admin
+
+  - name: export
+    command: echo export TNS_ADMIN=/opt/oracle/instantclient/network/admin/ >> /home/{{hostvars['localhost']['username']}}/.bashrc
+
+  - name: ldconfig
+    command: ldconfig
+
+  - name: unzip wallet
+    unarchive:
+        src: /home/{{hostvars['localhost']['username']}}/Johnston_ADB_Wallet.zip
+        dest: /home/{{hostvars['localhost']['username']}}/Johnston_ADB_Wallet
+        remote_src: yes
+
+  - name: cp
+    command: cp {{hostvars['localhost']['last_name']}}_ADB_Wallet/cwallet.sso /opt/oracle/instantclient/network/admin/
+
+  - name: cp
+    command: sudo cp {{hostvars['localhost']['last_name']}}_ADB_Wallet/tnsnames.ora /opt/oracle/instantclient/network/admin/
+
+  - name: cp
+    command: cp {{hostvars['localhost']['last_name']}}_ADB_Wallet/sqlnet.ora /opt/oracle/instantclient/network/admin/
+
+  - name: remove instantclient_dir
+    command: sudo rm -R instantclient_dir
+
+  - name: remove legacy files
+    command: sudo rm -R /home/{{hostvars['localhost']['username']}}/{{hostvars['localhost']['last_name']}}_ADB_Wallet
